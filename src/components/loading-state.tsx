@@ -1,0 +1,1 @@
+export function LoadingState(){return <section className="panel loading" aria-live="polite"><span className="spinner"/><h2>Analyzing your website...</h2><p>Running a real mobile Lighthouse audit. This can take up to a minute.</p><div className="skeletons">{[1,2,3,4].map(x=><i key={x}/>)}</div></section>}
