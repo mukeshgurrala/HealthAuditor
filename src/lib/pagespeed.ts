@@ -6,7 +6,7 @@ const cache=new Map<string,{expiresAt:number;result:PageSpeedResult}>();
 const to100=(n:number|null|undefined)=>typeof n==="number"?Math.round(n*100):null;
 const clean=(s="")=>s.replace(/\[([^\]]+)\]\([^)]*\)/g,"$1").replace(/`/g,"").split(". Learn")[0].trim();
 export async function runPageSpeed(url:string){
- const key=process.env.PAGESPEED_API_KEY; if(!key) throw new Error("PageSpeed API is not configured. Add PAGESPEED_API_KEY to .env.local.");
+ const key=process.env.PAGESPEED_API_KEY; if(!key) throw new Error("PageSpeed API is not configured. Add PAGESPEED_API_KEY in Vercel Project Settings > Environment Variables, or to .env.local for local development.");
  const cached=cache.get(url); if(cached&&cached.expiresAt>Date.now()) return cached.result;
  const endpoint=new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed"); endpoint.searchParams.set("url",url);endpoint.searchParams.set("strategy","mobile");endpoint.searchParams.set("key",key);["performance","accessibility","best-practices","seo"].forEach(c=>endpoint.searchParams.append("category",c));
  const response=await fetch(endpoint,{signal:AbortSignal.timeout(75_000),cache:"no-store"});
