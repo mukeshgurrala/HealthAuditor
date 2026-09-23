@@ -16,4 +16,3 @@ Open http://localhost:3000. The API key stays server-side. Gemini is optional; w
 ## Deploy to Vercel
 
 Import the repository in Vercel, add `PAGESPEED_API_KEY` in Project Settings → Environment Variables, then deploy.
-# HealthAuditor
