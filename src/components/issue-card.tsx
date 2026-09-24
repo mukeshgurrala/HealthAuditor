@@ -1,1 +1,0 @@
-import type{PriorityIssue}from"@/lib/types";export function IssueCard({issue}:{issue:PriorityIssue}){return <article className="issue"><div className={`badge ${issue.severity}`}>{issue.severity}</div><div><h4>{issue.title}{issue.value&&<span> · {issue.value}</span>}</h4><p>{issue.explanation}</p><div className="fix"><b>Recommended fix</b><br/>{issue.fix}</div></div></article>}
