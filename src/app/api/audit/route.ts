@@ -3,7 +3,8 @@ import { AuditError, runAudit } from "@/lib/audit/engine";
 import { normalizePublicUrl } from "@/lib/validation";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Vercel Hobby caps serverless functions at 60s; the engine budgets itself below this.
+export const maxDuration = 60;
 
 /**
  * POST /api/audit

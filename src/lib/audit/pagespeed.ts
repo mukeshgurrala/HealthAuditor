@@ -90,7 +90,7 @@ export async function fetchPerformanceData(
 
   let response: Response;
   try {
-    response = await fetch(endpoint, { signal: AbortSignal.timeout(70_000), cache: "no-store" });
+    response = await fetch(endpoint, { signal: AbortSignal.timeout(35_000), cache: "no-store" });
   } catch {
     return null;
   }

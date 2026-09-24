@@ -37,7 +37,9 @@ export async function runAudit(url: string, overrides: Partial<AuditOptions> = {
   const startedAt = Date.now();
   const context = await collectContext(url, overrides);
 
-  if (context.options.usePageSpeed) {
+  /* Stay inside the serverless function budget: only call PageSpeed if there is time left. */
+  const elapsed = Date.now() - startedAt;
+  if (context.options.usePageSpeed && elapsed < 20_000) {
     context.performance = await fetchPerformanceData(context.finalUrl, context.options.strategy).catch(() => null);
     if (!context.performance) {
       context.collectionNotes.push(
@@ -46,6 +48,10 @@ export async function runAudit(url: string, overrides: Partial<AuditOptions> = {
           : "Core Web Vitals were not measured: no PageSpeed Insights API key is configured.",
       );
     }
+  } else if (context.options.usePageSpeed) {
+    context.collectionNotes.push(
+      "Core Web Vitals were skipped because collecting the page took most of the time budget for this audit.",
+    );
   }
 
   return buildReport(context, startedAt);

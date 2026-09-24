@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DemoReport } from "@/components/demo-report";
 import { buildStaticContext } from "@/lib/audit/context";
 import { DEMO_PAGE_HTML } from "@/lib/audit/demo-page";
@@ -29,7 +30,7 @@ export default async function DemoPage() {
   return (
     <main className="demo-wrap">
       <div className="demo-banner">
-        <b>Sample report.</b> Generated from a deliberately broken demo page so you can see the output format. <a href="/">Audit a real site →</a>
+        <b>Sample report.</b> Generated from a deliberately broken demo page so you can see the output format. <Link href="/">Audit a real site →</Link>
       </div>
       <DemoReport report={report} />
     </main>

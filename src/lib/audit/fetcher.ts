@@ -158,7 +158,7 @@ async function getResource(
 /** Status-only probe used by the broken-link checker. */
 export async function probeStatus(
   url: string,
-  timeoutMs = 8_000,
+  timeoutMs = 6_000,
 ): Promise<{ status: number | null; redirectTo: string | null; error?: string }> {
   try {
     assertPublicUrl(url);

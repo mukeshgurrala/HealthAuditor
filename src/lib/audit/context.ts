@@ -24,7 +24,7 @@ import {
 
 export class AuditError extends Error {}
 
-const HTML_TIMEOUT_MS = 20_000;
+const HTML_TIMEOUT_MS = 15_000;
 
 function absolute(base: string, href: string | undefined): string | null {
   if (!href) return null;
@@ -61,7 +61,7 @@ async function fetchDocument(startUrl: string) {
       });
     } catch (error) {
       const reason = error instanceof Error && error.name === "TimeoutError"
-        ? "The website took too long to respond (over 20 seconds)."
+        ? "The website took too long to respond (over 15 seconds)."
         : "We couldn't reach this website. Check the address and that the site is publicly online.";
       throw new AuditError(reason);
     }
@@ -321,7 +321,7 @@ async function measureAll(context: AuditContext, options: AuditOptions) {
     Math.max(0, context.scripts.length + context.stylesheets.length + context.fonts.length - others.length);
 
   const measuredImages = await mapWithConcurrency(images, 6, async (image) => {
-    const result = await measureResource(image.url, { timeoutMs: 10_000, sampleBytes: 65_536 });
+    const result = await measureResource(image.url, { timeoutMs: 8_000, sampleBytes: 65_536 });
     const dimensions = result.sample ? readImageDimensions(result.sample) : null;
     return {
       ...image,
@@ -337,7 +337,7 @@ async function measureAll(context: AuditContext, options: AuditOptions) {
   });
 
   const measuredOthers = await mapWithConcurrency(others, 6, async (item) => {
-    const result = await measureResource(item.url, { timeoutMs: 10_000 });
+    const result = await measureResource(item.url, { timeoutMs: 8_000 });
     return {
       ...item,
       bytes: result.bytes,
