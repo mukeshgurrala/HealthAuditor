@@ -12,7 +12,7 @@ Enter URL → Audit → Find problems → Prioritise → Explain → Fix → Re-
 - **Priority engine** — impact × affected elements × effort, so the list starts with what matters
 - **Evidence for everything** — rule ID, observed value, expected value, element/resource
 - **Plain language by default**, technical details one click away
-- **Works without an API key** and without an account; nothing is stored
+- **Works without an API key** and without an account; reports are cached in memory for up to two minutes
 
 ## Quick start
 
@@ -100,3 +100,31 @@ checks performed", never "this site is secure". See `/how-it-works` for the full
 
 Import the repository in Vercel and (optionally) add `PAGESPEED_API_KEY` under Project
 Settings → Environment Variables.
+
+## Request safety and capacity
+
+Audit requests are limited to 8 KB and URLs to 2,048 characters. Only standard HTTP(S)
+ports are accepted. All target and resource connections validate DNS results at connection
+time and reject private/reserved addresses; redirects are independently validated.
+Downloaded bodies are capped at 5 MB (smaller for robots and sitemap documents).
+
+Each process caches up to 20 successful reports for two minutes, coalesces identical
+in-flight requests, and permits four distinct concurrent audits. Saturation returns
+HTTP 429 with `Retry-After: 15`. This is an instance-local capacity limit, not a
+distributed per-user rate limiter; production multi-instance deployments should add
+a shared cache and gateway rate limits. Error responses contain `success`, `code`,
+and a human-readable `error`. Client progress stages are estimates, not streamed
+backend events. Lighthouse metrics remain optional and are never fabricated.
+
+## Homepage customization
+
+- Set `NEXT_PUBLIC_WHATSAPP_NUMBER` (international digits, no `+`) to route the
+  header/footer WhatsApp buttons to enquiries. Without a number they share the
+  tool, with an explicit “Share on WhatsApp” label.
+- Edit the `SHOWCASES` entries in `src/components/report-showcase.tsx` to customize
+  titles, descriptions, modal content, and screenshot paths. Put media in `public/`
+  and set `imageSrc` to a root-relative path, such as `/screenshots/report.webp`.
+  Empty paths render lightweight, built-in report illustrations instead.
+- Fonts are self-hosted through Fontsource; no third-party font requests are needed.
+- Decorative motion respects reduced-motion preferences; previews use native dialogs
+  with keyboard dismissal and focus restoration.

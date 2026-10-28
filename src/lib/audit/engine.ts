@@ -1,3 +1,4 @@
+import { auditSignal, withAuditDeadline } from "./deadline";
 /**
  * The audit engine: collect context once, run every rule against it, then score,
  * prioritise and package the result.
@@ -31,30 +32,47 @@ import { sumBytes } from "./rules/helpers";
 
 export { AuditError };
 
-const EMPTY_COUNTS = (): Record<Severity, number> => ({ critical: 0, high: 0, medium: 0, low: 0 });
+const EMPTY_COUNTS = (): Record<Severity, number> => ({
+  critical: 0,
+  high: 0,
+  medium: 0,
+  low: 0,
+});
 
-export async function runAudit(url: string, overrides: Partial<AuditOptions> = {}): Promise<AuditReport> {
-  const startedAt = Date.now();
-  const context = await collectContext(url, overrides);
+export async function runAudit(
+  url: string,
+  overrides: Partial<AuditOptions> = {},
+): Promise<AuditReport> {
+  return withAuditDeadline(async () => {
+    const startedAt = Date.now();
+    const context = await collectContext(url, overrides);
 
-  /* Stay inside the serverless function budget: only call PageSpeed if there is time left. */
-  const elapsed = Date.now() - startedAt;
-  if (context.options.usePageSpeed && elapsed < 20_000) {
-    context.performance = await fetchPerformanceData(context.finalUrl, context.options.strategy).catch(() => null);
-    if (!context.performance) {
+    /* Stay inside the serverless function budget: only call PageSpeed if there is time left. */
+    const elapsed = Date.now() - startedAt;
+    if (context.options.usePageSpeed && elapsed < 20_000) {
+      context.performance = await fetchPerformanceData(
+        context.finalUrl,
+        context.options.strategy,
+      ).catch(() => null);
+      if (!context.performance) {
+        context.collectionNotes.push(
+          process.env.PAGESPEED_API_KEY
+            ? "Core Web Vitals were unavailable for this URL, so lab metrics are not shown."
+            : "Core Web Vitals were not measured: no PageSpeed Insights API key is configured.",
+        );
+      }
+    } else if (context.options.usePageSpeed) {
       context.collectionNotes.push(
-        process.env.PAGESPEED_API_KEY
-          ? "Core Web Vitals were unavailable for this URL, so lab metrics are not shown."
-          : "Core Web Vitals were not measured: no PageSpeed Insights API key is configured.",
+        "Core Web Vitals were skipped because collecting the page took most of the time budget for this audit.",
       );
     }
-  } else if (context.options.usePageSpeed) {
-    context.collectionNotes.push(
-      "Core Web Vitals were skipped because collecting the page took most of the time budget for this audit.",
-    );
-  }
 
-  return buildReport(context, startedAt);
+    if (auditSignal()?.aborted)
+      throw new AuditError(
+        "The audit took too long to complete. Please try again.",
+      );
+    return buildReport(context, startedAt);
+  });
 }
 
 /** Runs the rules against an already-built context. Exported so tests can reuse it. */
@@ -62,7 +80,11 @@ export async function evaluateRules(context: AuditContext) {
   const findings: Finding[] = [];
   const passed: PassedCheck[] = [];
   const skipped: SkippedCheck[] = [];
-  const scoreEntries: Array<{ category: Category; weight: number; passed: boolean }> = [];
+  const scoreEntries: Array<{
+    category: Category;
+    weight: number;
+    passed: boolean;
+  }> = [];
 
   for (const rule of RULES) {
     let outcome;
@@ -79,19 +101,45 @@ export async function evaluateRules(context: AuditContext) {
     }
 
     if (outcome.status === "skip") {
-      skipped.push({ ruleId: rule.id, name: rule.name, category: rule.category, reason: outcome.reason });
+      skipped.push({
+        ruleId: rule.id,
+        name: rule.name,
+        category: rule.category,
+        reason: outcome.reason,
+      });
       continue;
     }
     if (outcome.status === "pass") {
-      passed.push({ ruleId: rule.id, name: rule.name, category: rule.category, summary: outcome.summary });
-      scoreEntries.push({ category: rule.category, weight: ruleWeight(rule), passed: true });
+      passed.push({
+        ruleId: rule.id,
+        name: rule.name,
+        category: rule.category,
+        summary: outcome.summary,
+      });
+      scoreEntries.push({
+        category: rule.category,
+        weight: ruleWeight(rule),
+        passed: true,
+      });
       continue;
     }
 
-    const ruleFindings = outcome.findings.map((draft) => materialiseFinding(rule, draft, context.finalUrl));
+    const ruleFindings = outcome.findings.map((draft) =>
+      materialiseFinding(rule, draft, context.finalUrl),
+    );
     findings.push(...ruleFindings);
-    const worst = ruleFindings.reduce<Severity>((acc, finding) => (severityRank(finding.severity) > severityRank(acc) ? finding.severity : acc), "low");
-    scoreEntries.push({ category: rule.category, weight: ruleWeight(rule, worst), passed: false });
+    const worst = ruleFindings.reduce<Severity>(
+      (acc, finding) =>
+        severityRank(finding.severity) > severityRank(acc)
+          ? finding.severity
+          : acc,
+      "low",
+    );
+    scoreEntries.push({
+      category: rule.category,
+      weight: ruleWeight(rule, worst),
+      passed: false,
+    });
   }
 
   return { findings, passed, skipped, scoreEntries };
@@ -102,7 +150,10 @@ function severityRank(severity: Severity): number {
 }
 
 /** Turn an already-collected context into a finished report (no network access). */
-export function buildReport(context: AuditContext, startedAt: number = Date.now()): Promise<AuditReport> {
+export function buildReport(
+  context: AuditContext,
+  startedAt: number = Date.now(),
+): Promise<AuditReport> {
   return evaluateRules(context).then((result) => {
     const { findings, passed, skipped, scoreEntries } = result;
 
@@ -115,7 +166,9 @@ export function buildReport(context: AuditContext, startedAt: number = Date.now(
     });
 
     const categories: CategoryReport[] = CATEGORIES.map((category) => {
-      const entries = scoreEntries.filter((entry) => entry.category === category);
+      const entries = scoreEntries.filter(
+        (entry) => entry.category === category,
+      );
       let score = categoryScore(entries);
       let scoreExplanation =
         entries.length === 0
@@ -123,7 +176,11 @@ export function buildReport(context: AuditContext, startedAt: number = Date.now(
           : `${entries.filter((e) => e.passed).length} of ${entries.length} applicable checks passed, weighted by severity.`;
 
       /* Performance blends measured Lighthouse data with the static rules when available. */
-      if (category === "performance" && context.performance?.lighthouseScore !== null && context.performance?.lighthouseScore !== undefined) {
+      if (
+        category === "performance" &&
+        context.performance?.lighthouseScore !== null &&
+        context.performance?.lighthouseScore !== undefined
+      ) {
         const measured = context.performance.lighthouseScore;
         score = Math.round(measured * 0.6 + score * 0.4);
         scoreExplanation = `60% measured Lighthouse performance score (${measured}) + 40% HealthAuditor resource rules.`;
@@ -150,10 +207,16 @@ export function buildReport(context: AuditContext, startedAt: number = Date.now(
       };
     });
 
-    const scores = Object.fromEntries(categories.map((c) => [c.category, c.score])) as Record<Category, number>;
+    const scores = Object.fromEntries(
+      categories.map((c) => [c.category, c.score]),
+    ) as Record<Category, number>;
     const score = overallScore(scores);
 
-    const ranked = [...dedupedFindings].sort((a, b) => b.priority - a.priority || severityRank(b.severity) - severityRank(a.severity));
+    const ranked = [...dedupedFindings].sort(
+      (a, b) =>
+        b.priority - a.priority ||
+        severityRank(b.severity) - severityRank(a.severity),
+    );
     const counts = EMPTY_COUNTS();
     ranked.forEach((finding) => {
       counts[finding.severity] += 1;
@@ -185,9 +248,18 @@ export function buildReport(context: AuditContext, startedAt: number = Date.now(
       pageStats: {
         htmlBytes: context.htmlBytes,
         requestCount:
-          context.images.length + context.scripts.length + context.stylesheets.length + context.fonts.length + context.otherResources.length,
+          context.images.length +
+          context.scripts.length +
+          context.stylesheets.length +
+          context.fonts.length +
+          context.otherResources.length,
         totalBytes: (() => {
-          const resources = sumBytes([...context.images, ...context.scripts, ...context.stylesheets, ...context.fonts]);
+          const resources = sumBytes([
+            ...context.images,
+            ...context.scripts,
+            ...context.stylesheets,
+            ...context.fonts,
+          ]);
           return resources === null ? null : resources + context.htmlBytes;
         })(),
         imageBytes: sumBytes(context.images),

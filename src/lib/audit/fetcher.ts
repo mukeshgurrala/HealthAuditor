@@ -1,3 +1,4 @@
+import { safeFetch, readBoundedBody } from "./safe-fetch";
 /**
  * Network helpers used by the context collector.
  *
@@ -33,19 +34,25 @@ function headerMap(headers: Headers): Record<string, string> {
 
 export async function fetchText(
   url: string,
-  { timeoutMs = 15_000, maxBytes = 5_000_000 }: { timeoutMs?: number; maxBytes?: number } = {},
+  {
+    timeoutMs = 15_000,
+    maxBytes = 5_000_000,
+  }: { timeoutMs?: number; maxBytes?: number } = {},
 ): Promise<FetchTextResult> {
   const started = Date.now();
   try {
     assertPublicUrl(url);
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       redirect: "follow",
       cache: "no-store",
-      headers: { "user-agent": USER_AGENT, accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
+      headers: {
+        "user-agent": USER_AGENT,
+        accept: "text/html,application/xhtml+xml,*/*;q=0.8",
+      },
       signal: AbortSignal.timeout(timeoutMs),
     });
     const ttfbMs = Date.now() - started;
-    const buffer = await response.arrayBuffer();
+    const buffer = await readBoundedBody(response, maxBytes);
     const bytes = buffer.byteLength;
     const text = new TextDecoder("utf-8").decode(buffer.slice(0, maxBytes));
     return {
@@ -90,32 +97,60 @@ export interface HeadResult {
  */
 export async function measureResource(
   url: string,
-  { timeoutMs = 10_000, sampleBytes = 0 }: { timeoutMs?: number; sampleBytes?: number } = {},
+  {
+    timeoutMs = 10_000,
+    sampleBytes = 0,
+  }: { timeoutMs?: number; sampleBytes?: number } = {},
 ): Promise<HeadResult> {
   try {
     assertPublicUrl(url);
   } catch (error) {
-    return { status: null, url, headers: {}, bytes: null, sample: null, error: (error as Error).message };
+    return {
+      status: null,
+      url,
+      headers: {},
+      bytes: null,
+      sample: null,
+      error: (error as Error).message,
+    };
   }
 
   const headers = { "user-agent": USER_AGENT };
   try {
-    const head = await fetch(url, {
+    const head = await safeFetch(url, {
       method: "HEAD",
       redirect: "follow",
       cache: "no-store",
       headers,
       signal: AbortSignal.timeout(timeoutMs),
     });
+    await head.body?.cancel();
     const map = headerMap(head.headers);
     const length = Number(map["content-length"]);
     if (head.ok && Number.isFinite(length) && length > 0 && !sampleBytes) {
-      return { status: head.status, url: head.url || url, headers: map, bytes: length, sample: null };
+      return {
+        status: head.status,
+        url: head.url || url,
+        headers: map,
+        bytes: length,
+        sample: null,
+      };
     }
     if (head.ok || head.status === 405 || head.status === 501 || sampleBytes) {
-      return await getResource(url, timeoutMs, sampleBytes, head.ok ? head.status : null);
+      return await getResource(
+        url,
+        timeoutMs,
+        sampleBytes,
+        head.ok ? head.status : null,
+      );
     }
-    return { status: head.status, url: head.url || url, headers: map, bytes: null, sample: null };
+    return {
+      status: head.status,
+      url: head.url || url,
+      headers: map,
+      bytes: null,
+      sample: null,
+    };
   } catch {
     return await getResource(url, timeoutMs, sampleBytes, null);
   }
@@ -128,14 +163,14 @@ async function getResource(
   fallbackStatus: number | null,
 ): Promise<HeadResult> {
   try {
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       redirect: "follow",
       cache: "no-store",
       headers: { "user-agent": USER_AGENT },
       signal: AbortSignal.timeout(timeoutMs),
     });
     const map = headerMap(response.headers);
-    const buffer = await response.arrayBuffer();
+    const buffer = await readBoundedBody(response);
     return {
       status: response.status ?? fallbackStatus,
       url: response.url || url,
@@ -159,14 +194,18 @@ async function getResource(
 export async function probeStatus(
   url: string,
   timeoutMs = 6_000,
-): Promise<{ status: number | null; redirectTo: string | null; error?: string }> {
+): Promise<{
+  status: number | null;
+  redirectTo: string | null;
+  error?: string;
+}> {
   try {
     assertPublicUrl(url);
   } catch (error) {
     return { status: null, redirectTo: null, error: (error as Error).message };
   }
   const attempt = async (method: "HEAD" | "GET") =>
-    fetch(url, {
+    safeFetch(url, {
       method,
       redirect: "manual",
       cache: "no-store",
@@ -175,13 +214,25 @@ export async function probeStatus(
     });
   try {
     let response = await attempt("HEAD");
-    if (response.status === 405 || response.status === 501 || response.status === 403) {
+    if (
+      response.status === 405 ||
+      response.status === 501 ||
+      response.status === 403
+    ) {
       response = await attempt("GET");
     }
     const location = response.headers.get("location");
-    return { status: response.status, redirectTo: location ? new URL(location, url).href : null };
+    await response.body?.cancel();
+    return {
+      status: response.status,
+      redirectTo: location ? new URL(location, url).href : null,
+    };
   } catch (error) {
-    return { status: null, redirectTo: null, error: error instanceof Error ? error.message : "request failed" };
+    return {
+      status: null,
+      redirectTo: null,
+      error: error instanceof Error ? error.message : "request failed",
+    };
   }
 }
 
@@ -193,12 +244,15 @@ export async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let cursor = 0;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await worker(items[index], index);
-    }
-  });
+  const runners = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (cursor < items.length) {
+        const index = cursor++;
+        results[index] = await worker(items[index], index);
+      }
+    },
+  );
   await Promise.all(runners);
   return results;
 }
