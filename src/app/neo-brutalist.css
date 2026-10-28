@@ -811,7 +811,7 @@ footer {
   .nav-links {
     gap: 12px;
   }
-  .nav-links > a:not(.tactile) {
+  .nav-links > a:not(.tactile):not(.linkedin-link) {
     display: none;
   }
   .nav-links .tactile {
@@ -903,5 +903,34 @@ footer {
   .category-card,
   .showcase-preview {
     transition: none;
+  }
+}
+
+.linkedin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 44px;
+}
+.linkedin-link svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.linkedin-link:hover {
+  text-decoration: underline;
+}
+.footer-content nav {
+  flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .site-header nav {
+    flex-wrap: wrap;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    gap: 14px;
   }
 }
