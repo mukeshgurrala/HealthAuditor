@@ -1,3 +1,4 @@
+import { auditSignal } from "./deadline";
 /**
  * Optional Core Web Vitals enrichment via the PageSpeed Insights API.
  *
@@ -38,10 +39,14 @@ const EXPLANATIONS: Record<string, string> = {
   cls: "How much the layout jumps around while loading. Good: under 0.1.",
   fcp: "How long until the first text or image appears. Good: under 1.8 s.",
   tbt: "How long the main thread was blocked and unable to respond to input during load. Good: under 200 ms.",
-  speedIndex: "How quickly the visible part of the page fills in. Good: under 3.4 s.",
+  speedIndex:
+    "How quickly the visible part of the page fills in. Good: under 3.4 s.",
 };
 
-function rate(key: keyof PerformanceData["metrics"], value: number | null): MetricValue["rating"] {
+function rate(
+  key: keyof PerformanceData["metrics"],
+  value: number | null,
+): MetricValue["rating"] {
   if (value === null) return "unknown";
   const thresholds: Record<string, [number, number]> = {
     lcp: [2500, 4000],
@@ -64,7 +69,13 @@ function metric(
 ): MetricValue {
   return {
     value,
-    display: display ?? (value === null ? "Not measured" : key === "cls" ? value.toFixed(3) : `${Math.round(value)} ms`),
+    display:
+      display ??
+      (value === null
+        ? "Not measured"
+        : key === "cls"
+          ? value.toFixed(3)
+          : `${Math.round(value)} ms`),
     rating: rate(key, value),
     explanation: EXPLANATIONS[key],
     source: value === null ? "unavailable" : source,
@@ -82,7 +93,9 @@ export async function fetchPerformanceData(
   const cached = cache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
+  const endpoint = new URL(
+    "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
+  );
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("strategy", strategy);
   endpoint.searchParams.set("key", key);
@@ -90,7 +103,10 @@ export async function fetchPerformanceData(
 
   let response: Response;
   try {
-    response = await fetch(endpoint, { signal: AbortSignal.timeout(35_000), cache: "no-store" });
+    response = await fetch(endpoint, {
+      signal: auditSignal(AbortSignal.timeout(35_000)),
+      cache: "no-store",
+    });
   } catch {
     return null;
   }
@@ -98,8 +114,13 @@ export async function fetchPerformanceData(
 
   const data = (await response.json()) as PsiResponse;
   const audits = data.lighthouseResult?.audits ?? {};
-  const numeric = (id: string) => (typeof audits[id]?.numericValue === "number" ? (audits[id].numericValue as number) : null);
-  const fieldInp = data.loadingExperience?.metrics?.INTERACTION_TO_NEXT_PAINT?.percentile ?? null;
+  const numeric = (id: string) =>
+    typeof audits[id]?.numericValue === "number"
+      ? (audits[id].numericValue as number)
+      : null;
+  const fieldInp =
+    data.loadingExperience?.metrics?.INTERACTION_TO_NEXT_PAINT?.percentile ??
+    null;
 
   const performance: PerformanceData = {
     source: "psi",
@@ -109,19 +130,56 @@ export async function fetchPerformanceData(
         ? Math.round(data.lighthouseResult.categories.performance.score * 100)
         : null,
     metrics: {
-      lcp: metric("lcp", numeric("largest-contentful-paint"), audits["largest-contentful-paint"]?.displayValue, "lab"),
-      inp: metric("inp", fieldInp, fieldInp === null ? undefined : `${fieldInp} ms`, "field"),
-      cls: metric("cls", numeric("cumulative-layout-shift"), audits["cumulative-layout-shift"]?.displayValue, "lab"),
-      fcp: metric("fcp", numeric("first-contentful-paint"), audits["first-contentful-paint"]?.displayValue, "lab"),
-      tbt: metric("tbt", numeric("total-blocking-time"), audits["total-blocking-time"]?.displayValue, "lab"),
-      speedIndex: metric("speedIndex", numeric("speed-index"), audits["speed-index"]?.displayValue, "lab"),
+      lcp: metric(
+        "lcp",
+        numeric("largest-contentful-paint"),
+        audits["largest-contentful-paint"]?.displayValue,
+        "lab",
+      ),
+      inp: metric(
+        "inp",
+        fieldInp,
+        fieldInp === null ? undefined : `${fieldInp} ms`,
+        "field",
+      ),
+      cls: metric(
+        "cls",
+        numeric("cumulative-layout-shift"),
+        audits["cumulative-layout-shift"]?.displayValue,
+        "lab",
+      ),
+      fcp: metric(
+        "fcp",
+        numeric("first-contentful-paint"),
+        audits["first-contentful-paint"]?.displayValue,
+        "lab",
+      ),
+      tbt: metric(
+        "tbt",
+        numeric("total-blocking-time"),
+        audits["total-blocking-time"]?.displayValue,
+        "lab",
+      ),
+      speedIndex: metric(
+        "speedIndex",
+        numeric("speed-index"),
+        audits["speed-index"]?.displayValue,
+        "lab",
+      ),
     },
     opportunities: Object.entries(audits)
-      .filter(([, audit]) => audit.details?.overallSavingsMs && audit.details.overallSavingsMs > 100)
+      .filter(
+        ([, audit]) =>
+          audit.details?.overallSavingsMs &&
+          audit.details.overallSavingsMs > 100,
+      )
       .map(([id, audit]) => ({
         id,
         title: audit.title ?? id,
-        description: (audit.description ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1"),
+        description: (audit.description ?? "").replace(
+          /\[([^\]]+)\]\([^)]*\)/g,
+          "$1",
+        ),
         displayValue: audit.displayValue,
         savingsMs: audit.details?.overallSavingsMs,
       }))
@@ -129,7 +187,10 @@ export async function fetchPerformanceData(
       .slice(0, 8),
   };
 
-  cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, data: performance });
+  cache.set(cacheKey, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    data: performance,
+  });
   return performance;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeUrlInput } from "@/lib/url-input";
 import { FormEvent, useState } from "react";
 import type { AuditReport } from "@/lib/audit/types";
 import { AuditReportView } from "./audit-report";
@@ -15,8 +16,14 @@ export function AuditForm() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!url.trim()) {
-      setError("Please enter a website URL.");
+    if (state === "loading") return;
+    let normalized: string;
+    try {
+      normalized = normalizeUrlInput(url);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Enter a valid website URL.",
+      );
       setState("error");
       return;
     }
@@ -24,9 +31,10 @@ export function AuditForm() {
     setError("");
     try {
       const response = await fetch("/api/audit", {
+        signal: AbortSignal.timeout(65_000),
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: normalized }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -35,7 +43,15 @@ export function AuditForm() {
       setReport(data.report as AuditReport);
       setState("done");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Something unexpected went wrong.");
+      setError(
+        caught instanceof Error && caught.name === "TimeoutError"
+          ? "The audit took too long. Please try again or choose another website."
+          : caught instanceof TypeError
+            ? "Could not connect to the audit service. Check your connection and try again."
+            : caught instanceof Error
+              ? caught.message
+              : "Something unexpected went wrong.",
+      );
       setState("error");
     }
   }
@@ -49,13 +65,24 @@ export function AuditForm() {
 
   return (
     <>
-      <form className="audit-form" onSubmit={submit}>
-        <div>
+      <form
+        id="audit-input"
+        className="audit-form"
+        onSubmit={submit}
+        aria-busy={state === "loading"}
+        noValidate
+      >
+        <div className="url-input-container">
           <label className="sr-only" htmlFor="url">
             Website URL
           </label>
           <input
             id="url"
+            data-audit-input="true"
+            maxLength={2048}
+            disabled={state === "loading"}
+            aria-invalid={state === "error"}
+            aria-describedby={state === "error" ? "audit-error" : "audit-help"}
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             placeholder="https://example.com"
@@ -63,18 +90,25 @@ export function AuditForm() {
             autoComplete="url"
           />
           <button disabled={state === "loading"} type="submit">
-            {state === "loading" ? "Auditing…" : "Start audit →"}
+            {state === "loading" && (
+              <span className="button-spinner" aria-hidden="true" />
+            )}
+            {state === "loading" ? "Analyzing…" : "Analyze Site"}
           </button>
         </div>
         {state === "error" && (
-          <p className="form-error" role="alert">
-            ⚠️ {error}
+          <p id="audit-error" className="form-error" role="alert">
+            {error}
           </p>
         )}
-        <p className="free">Performance · SEO · Accessibility · Best practices · Security — no sign-up, nothing stored.</p>
+        <p id="audit-help" className="free">
+          Enter a public website URL. No account required.
+        </p>
       </form>
       {state === "loading" && <LoadingState />}
-      {state === "done" && report && <AuditReportView report={report} onReset={reset} />}
+      {state === "done" && report && (
+        <AuditReportView report={report} onReset={reset} />
+      )}
     </>
   );
 }

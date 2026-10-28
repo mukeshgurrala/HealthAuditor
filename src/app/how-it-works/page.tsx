@@ -106,10 +106,10 @@ effort:  ${Object.entries(EFFORT_MULTIPLIER).map(([k, v]) => `${k}=${v}`).join("
         <li>Resource measurement is capped per audit to keep runs fast; skipped resources are listed in the report notes.</li>
       </ul>
 
-      <h2>6. Privacy</h2>
+      <h2 id="privacy">6. Privacy</h2>
       <ul>
         <li>No account is required.</li>
-        <li>Audits run on demand; the URL and the report are returned to your browser and not stored by default.</li>
+        <li>Audits run on demand; the URL and the report are returned to your browser and cached in server memory for up to two minutes to avoid duplicate work. Reports are not persisted to a database.</li>
         <li>Page content is held in memory for the duration of the audit only.</li>
         <li>
           If a PageSpeed Insights key is configured, the audited URL is sent to Google&apos;s PageSpeed Insights API.

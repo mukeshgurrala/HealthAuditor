@@ -20,7 +20,13 @@ const EFFORT_LABEL: Record<Finding["effort"], string> = {
  * Every finding renders the same blocks (spec §6): Problem, Why it matters, Evidence,
  * Impact, How to fix, and a collapsed Technical details section (spec §8).
  */
-export function FindingCard({ finding, rank }: { finding: Finding; rank?: number }) {
+export function FindingCard({
+  finding,
+  rank,
+}: {
+  finding: Finding;
+  rank?: number;
+}) {
   const [reported, setReported] = useState<null | "yes" | "no">(null);
   const [note, setNote] = useState("");
   const [sent, setSent] = useState(false);
@@ -33,10 +39,19 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
           <h4>{finding.problem}</h4>
         </div>
         <div className="finding-tags">
-          <span className={`badge ${finding.severity}`}>{SEVERITY_LABEL[finding.severity]}</span>
+          <span className={`badge ${finding.severity}`}>
+            {SEVERITY_LABEL[finding.severity]}
+          </span>
           <span className="badge effort">{EFFORT_LABEL[finding.effort]}</span>
-          {finding.occurrences > 1 ? <span className="badge count">{finding.occurrences} affected</span> : null}
-          <code className="rule-id" title={`${finding.name} — rule ${finding.ruleId}`}>{finding.ruleId}</code>
+          {finding.occurrences > 1 ? (
+            <span className="badge count">{finding.occurrences} affected</span>
+          ) : null}
+          <code
+            className="rule-id"
+            title={`${finding.name} — rule ${finding.ruleId}`}
+          >
+            {finding.ruleId}
+          </code>
         </div>
       </header>
 
@@ -79,7 +94,9 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
         <p>{finding.howToFix}</p>
       </div>
 
-      {(finding.technicalFix || finding.technicalDetails.length || finding.references.length) && (
+      {(Boolean(finding.technicalFix) ||
+        finding.technicalDetails.length > 0 ||
+        finding.references.length > 0) && (
         <details className="tech">
           <summary>Technical details</summary>
           <div className="tech-body">
@@ -121,7 +138,12 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
             {finding.references.length ? (
               <p className="refs">
                 {finding.references.map((reference) => (
-                  <a key={reference} href={reference} target="_blank" rel="noopener noreferrer">
+                  <a
+                    key={reference}
+                    href={reference}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {new URL(reference).hostname}
                   </a>
                 ))}
@@ -135,8 +157,16 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
         {reported === null && (
           <>
             <span>Was this finding incorrect?</span>
-            <button type="button" onClick={() => setReported("yes")}>Yes, report issue</button>
-            <button type="button" className="ghost" onClick={() => setReported("no")}>No</button>
+            <button type="button" onClick={() => setReported("yes")}>
+              Yes, report issue
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setReported("no")}
+            >
+              No
+            </button>
           </>
         )}
         {reported === "no" && <span>Thanks — noted.</span>}
@@ -147,12 +177,20 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
               void fetch("/api/false-positive", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ ruleId: finding.ruleId, url: finding.url, finding: finding.problem, explanation: note }),
+                body: JSON.stringify({
+                  ruleId: finding.ruleId,
+                  url: finding.url,
+                  finding: finding.problem,
+                  explanation: note,
+                }),
               }).catch(() => undefined);
               setSent(true);
             }}
           >
-            <label htmlFor={`fp-${finding.ruleId}-${finding.url}`} className="sr-only">
+            <label
+              htmlFor={`fp-${finding.ruleId}-${finding.url}`}
+              className="sr-only"
+            >
               Why is this finding wrong?
             </label>
             <input
@@ -164,7 +202,9 @@ export function FindingCard({ finding, rank }: { finding: Finding; rank?: number
             <button type="submit">Send report</button>
           </form>
         )}
-        {sent && <span>Thanks — {finding.ruleId} has been flagged for review.</span>}
+        {sent && (
+          <span>Thanks — {finding.ruleId} has been flagged for review.</span>
+        )}
       </div>
     </article>
   );
