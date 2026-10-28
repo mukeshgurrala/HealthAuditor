@@ -1,3 +1,8 @@
+import {
+  isVercelAuthenticationRedirect,
+  isVercelProtectionPage,
+  DEPLOYMENT_PROTECTED_MESSAGE,
+} from "./deployment-protection";
 import { safeFetch, readBoundedBody } from "./safe-fetch";
 /**
  * Context collection: everything the rules need is gathered here, exactly once.
@@ -33,7 +38,15 @@ import {
   SitemapInfo,
 } from "./types";
 
-export class AuditError extends Error {}
+export class AuditError extends Error {
+  constructor(
+    message: string,
+    public readonly code = "TARGET_UNREACHABLE",
+  ) {
+    super(message);
+    this.name = "AuditError";
+  }
+}
 
 const HTML_TIMEOUT_MS = 15_000;
 
@@ -66,6 +79,12 @@ async function fetchDocument(startUrl: string) {
   let current = startUrl;
 
   for (let hop = 0; hop < 6; hop += 1) {
+    if (isVercelAuthenticationRedirect(startUrl, current)) {
+      throw new AuditError(
+        DEPLOYMENT_PROTECTED_MESSAGE,
+        "DEPLOYMENT_PROTECTED",
+      );
+    }
     assertPublicUrl(current);
     const started = Date.now();
     let response: Response;
@@ -107,6 +126,12 @@ async function fetchDocument(startUrl: string) {
 
     const buffer = await readBoundedBody(response);
     const html = new TextDecoder("utf-8").decode(buffer);
+    if (isVercelProtectionPage(html, response.status)) {
+      throw new AuditError(
+        DEPLOYMENT_PROTECTED_MESSAGE,
+        "DEPLOYMENT_PROTECTED",
+      );
+    }
     return {
       finalUrl: response.url || current,
       status: response.status,

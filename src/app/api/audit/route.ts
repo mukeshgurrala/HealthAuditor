@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       const timeout = /too long|timeout/i.test(error.message);
       return failure(
         timeout ? 504 : 422,
-        timeout ? "TARGET_TIMEOUT" : "TARGET_UNREACHABLE",
+        timeout ? "TARGET_TIMEOUT" : error.code,
         error.message,
       );
     }
