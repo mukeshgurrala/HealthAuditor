@@ -1,36 +1,36 @@
-# Billing setup
+# Billing setup — 10 free audits, then $5/month Razorpay
 
 ## What is implemented
 
-- Email OTP sign-in through Supabase (no card required for trial).
+- Dedicated **login page at `/login`** — email OTP sign-in through Supabase (no password, no card for trial). Header and audit form show sign-in state, remaining free audits and a link to `/pricing` and `/account`.
 - Exactly **10 successful audit requests per account**, not 10 days. Cached results also
   count as requests. Failed audits release their credit; concurrent requests reserve
   credits atomically in PostgreSQL, including across multiple app servers.
-- Razorpay recurring monthly subscriptions using a server-configured plan. The real
-  plan price/currency is fetched from Razorpay and shown before checkout. No price or
-  paid audit limit has been invented; configure both before enabling subscriptions.
+- **$5/month Razorpay recurring subscription** after the free audits. The server-configured Razorpay plan is fetched live and shown before checkout — create a monthly $5 plan (500 cents) in Razorpay and set `RAZORPAY_PLAN_ID`. No price is invented in code; the UI falls back to showing $5 when the plan is not yet loaded.
 - Checkout HMAC signature verification tied to the signed-in account's stored
   subscription ID. Checkout success alone never grants access.
 - Paid access is checked against Razorpay's **live active subscription and current
   billing period on every audit**, not client state or webhook payloads. Expired,
   cancelled, pending, halted or unauthenticated subscriptions do not grant access.
   Usage resets by Razorpay billing-cycle ID, not the local calendar month.
-- If setup is missing, auditing fails closed; the public sample report still works.
+- Dedicated **pricing page at `/pricing`** and **account page at `/account`** — the homepage pricing strip, login upsell and audit paywall all point to the $5 plan.
+- If setup is missing, auditing fails closed; the public sample report at `/demo` still works.
 
 ## Required setup
 
 1. In Supabase, run `supabase/billing.sql` in the SQL editor. Enable email auth and
    configure a production SMTP provider. In the **Magic Link email template**, include
    `{{ .Token }}` as the sign-in code. This UI verifies email OTP codes, not link redirects.
+   The login page at `/login` uses `signInWithOtp` + `verifyOtp(type: "email")`.
    Configure appropriate Supabase email rate limits and abuse protection before launch.
 2. Copy the Supabase project URL and anon/publishable key into the two `NEXT_PUBLIC_`
    variables in `.env.local`. Set `SUPABASE_SERVICE_ROLE_KEY` server-side only. Tables
    have RLS enabled and no browser policies; only the server can reserve/refund credits
-   or alter subscription IDs. Never give clients the service-role key.
-3. Create a **monthly, interval 1** plan in Razorpay with your chosen INR price. Set
-   `RAZORPAY_PLAN_ID` and a positive integer `AUDITS_PER_MONTH`. Checkout remains disabled
+   or alter subscription IDs. Never give clients the service-role key. Without these, `/login` shows a setup message and audits fail closed.
+3. Create a **monthly, interval 1** plan in Razorpay for **$5.00** (or your local equivalent — e.g. ₹429). In Razorpay Dashboard go to Subscriptions → Plans → Create Plan, set period `monthly`, interval `1`, amount `500` (cents) / `50000` (paise). Set
+   `RAZORPAY_PLAN_ID` and a positive integer `AUDITS_PER_MONTH` (e.g. `100` or `1000`). Checkout remains disabled
    until this allowance and a plan are configured. The subscription authorisation is
-   for up to 120 monthly billing cycles, subject to customer cancellation.
+   for up to 120 monthly billing cycles, subject to customer cancellation. The real plan price is fetched and displayed before checkout; if not yet configured the UI shows the documented **$5/month**.
 4. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in server environment variables. The
    supplied CSV was imported into ignored `.env.local`, not source control. Do not upload
    the CSV or put the secret in a public variable. Configure all variables separately
@@ -39,7 +39,7 @@
    requirements. Test and live keys, plans and subscriptions must belong to the same mode.
 6. Provide a working support channel and your business's pricing, refund, cancellation,
    privacy and terms pages before taking live payments. Customers can manage subscriptions
-   using Razorpay subscription emails; support can manage them in the Razorpay dashboard.
+   using Razorpay subscription emails; support can manage them in the Razorpay dashboard. Link your terms from `/pricing`.
 
 No webhook is needed for entitlement correctness because access uses live provider
 checks. This intentionally depends on Razorpay availability and adds a provider request

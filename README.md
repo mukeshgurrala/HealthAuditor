@@ -12,7 +12,7 @@ Enter URL → Audit → Find problems → Prioritise → Explain → Fix → Re-
 - **Priority engine** — impact × affected elements × effort, so the list starts with what matters
 - **Evidence for everything** — rule ID, observed value, expected value, element/resource
 - **Plain language by default**, technical details one click away
-- **10 free audits per verified email account**, then a monthly Razorpay plan; reports are cached in memory for up to two minutes
+- **Login at `/login`** — email OTP sign-in; **10 free audits per account**, then **$5/month Razorpay** subscription; reports are cached in memory for up to two minutes
 
 ## Quick start
 
@@ -22,8 +22,7 @@ cp .env.example .env.local   # configure Supabase and Razorpay; optional PageSpe
 npm run dev
 ```
 
-Open <http://localhost:3000>. A sample report lives at `/demo`, and the methodology and
-privacy statement at `/how-it-works`.
+Open <http://localhost:3000>. Sign in at `/login` for 10 free audits (then $5/month via Razorpay), see pricing at `/pricing` and your allowance at `/account`. A sample report lives at `/demo`, and the methodology and privacy statement at `/how-it-works`.
 
 ## Commands
 
@@ -129,8 +128,11 @@ backend events. Lighthouse metrics remain optional and are never fabricated.
 - Decorative motion respects reduced-motion preferences; previews use native dialogs
   with keyboard dismissal and focus restoration.
 
-## Accounts, free audits and Razorpay
+## Accounts, free audits and Razorpay — $5/month
 
-See [billing setup](docs/BILLING.md). Real audits now require email sign-in and database
-setup. `/demo` remains public. The uploaded Razorpay credentials are local only and must
-also be configured in your hosting provider; they are never committed.
+- **Login:** `/login` — email OTP via Supabase. No password, no card for the trial.
+- **Free audits:** 10 per email account (successful audits only; failures are refunded; concurrent reservations are atomic).
+- **After 10:** Razorpay monthly subscription — **$5/month** (`RAZORPAY_PLAN_ID` must be a monthly plan, `AUDITS_PER_MONTH` sets the paid allowance). Live Razorpay checks on every audit; see [billing setup](docs/BILLING.md) and [pricing](/pricing).
+- **Account:** `/account` shows remaining audits, plan price and subscription status; `/pricing` documents included features.
+
+Real audits require sign-in and database setup. `/demo` remains public. Razorpay credentials are local only and must also be configured in your hosting provider; they are never committed.

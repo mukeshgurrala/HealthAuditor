@@ -106,7 +106,22 @@ effort:  ${Object.entries(EFFORT_MULTIPLIER).map(([k, v]) => `${k}=${v}`).join("
         <li>Resource measurement is capped per audit to keep runs fast; skipped resources are listed in the report notes.</li>
       </ul>
 
-      <h2 id="privacy">6. Privacy</h2>
+      <h2>6. Accounts &amp; billing — 10 free, then $5/month</h2>
+      <ul>
+        <li>
+          Sign in at <Link href="/login">/login</Link> with email OTP to claim <strong>10 free audits</strong> — no card
+          needed. After 10, a <strong>$5/month Razorpay subscription</strong> unlocks continued auditing. See{" "}
+          <Link href="/pricing">/pricing</Link> and your status at <Link href="/account">/account</Link>.
+        </li>
+        <li>Free audits and subscription status are stored in Supabase; Razorpay is the source of truth for paid access.</li>
+        <li>
+          Every audit checks Razorpay&apos;s live subscription status. Expired, cancelled or pending subscriptions do not
+          grant access. Billing resets by Razorpay billing-cycle ID.
+        </li>
+        <li>Manage or cancel your subscription via Razorpay subscription emails or by contacting support.</li>
+      </ul>
+
+      <h2 id="privacy">7. Privacy</h2>
       <ul>
         <li>Sign in by email to use 10 free audits. Supabase stores your account, audit usage and Razorpay subscription reference.</li>
         <li>Audits run on demand; the URL and the report are returned to your browser and cached in server memory for up to two minutes to avoid duplicate work. Reports are not persisted to a database.</li>

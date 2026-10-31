@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { LinkedInLink } from "@/components/linkedin-link";
 import { AuditForm } from "@/components/audit-form";
 import { RULES } from "@/lib/audit/registry";
-import { WhatsAppLink } from "@/components/whatsapp-link";
 import { ReportIllustration } from "@/components/report-illustration";
 import { ReportShowcase } from "@/components/report-showcase";
 import { FeatureGrid } from "@/components/feature-grid";
@@ -27,23 +25,7 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <>
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
-      <header className="site-header">
-        <nav aria-label="Main navigation">
-          <Link href="/" className="logo">
-            Health<span>Auditor</span>
-          </Link>
-          <div className="nav-links">
-            <Link href="/demo">Sample report</Link>
-            <LinkedInLink />
-            <WhatsAppLink />
-          </div>
-        </nav>
-      </header>
-      <main id="main-content">
+    <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-grid">
             <div className="hero-copy">
@@ -77,8 +59,8 @@ export default function Home() {
               <span>essential health categories</span>
             </div>
             <div>
-              <strong>0</strong>
-              <span>accounts needed to start</span>
+              <strong>10</strong>
+              <span>free audits per account</span>
             </div>
           </div>
           <div className="audit-heading">
@@ -91,6 +73,23 @@ export default function Home() {
         </section>
         <FeatureGrid />
         <ReportShowcase />
+        <section className="pricing-strip" aria-labelledby="pricing-strip-title">
+          <div className="pricing-strip-card free">
+            <span className="section-kicker">FREE TO START</span>
+            <h3>10 free audits</h3>
+            <p>No card needed. Full report, every time.</p>
+            <strong>$0</strong>
+          </div>
+          <div className="pricing-strip-card pro">
+            <span className="section-kicker">THEN $5 / MONTH</span>
+            <h3>Keep auditing</h3>
+            <p>Razorpay subscription. Cancel anytime.</p>
+            <strong>$5 / month</strong>
+          </div>
+          <Link href="/pricing" className="tactile">
+            See pricing details ↗
+          </Link>
+        </section>
         <section className="how" aria-labelledby="how-title">
           <h2 id="how-title">From “hmm…” to “handled.”</h2>
           <p className="section-description">
@@ -109,26 +108,5 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <footer>
-        <div className="footer-content">
-          <div className="footer-brand">
-            <Link href="/" className="logo">
-              Health<span>Auditor</span>
-            </Link>
-            <small>Better websites, one fix at a time.</small>
-          </div>
-          <WhatsAppLink />
-          <nav aria-label="Footer navigation">
-            <Link href="/how-it-works">Methodology</Link>
-            <Link href="/how-it-works#privacy">Privacy</Link>
-            <LinkedInLink />
-          </nav>
-        </div>
-        <div className="footer-bottom">
-          <small>© {new Date().getFullYear()} HealthAuditor</small>
-          <span>Built for a healthier web.</span>
-        </div>
-      </footer>
-    </>
   );
 }

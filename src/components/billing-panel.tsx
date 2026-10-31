@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { authClient, authHeaders } from "@/lib/billing/client";
+import { useAuth } from "./auth-provider";
 
 type Status = { freeRemaining: number; active: boolean; paidRemaining: number; monthlyLimit: number; plan: { item: { amount: number; currency: string }; period: string; interval: number } | null };
 type CheckoutResult = { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string };
@@ -14,7 +16,7 @@ declare global {
 }
 let checkoutScript: Promise<void> | null = null;
 function loadCheckout() {
-  if (window.Razorpay) return Promise.resolve();
+  if (typeof window !== "undefined" && window.Razorpay) return Promise.resolve();
   return checkoutScript ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -23,34 +25,35 @@ function loadCheckout() {
     document.head.appendChild(script);
   });
 }
+
+/**
+ * Compact billing panel — kept for backwards compatibility.
+ * Prefer the dedicated /login and /account pages for full flows.
+ * This component now delegates to the shared AuthProvider so allowance
+ * stays in sync across the header, audit form and account page.
+ */
 export function BillingPanel() {
+  const { user, status: authStatus, configured, refresh: refreshAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-  const [status, setStatus] = useState<Status | null>(null);
+  const [status, setStatus] = useState<Status | null>(authStatus);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStatus(authStatus);
+  }, [authStatus]);
+
   async function refresh() {
     const response = await fetch("/api/billing/status", { headers: await authHeaders(), cache: "no-store" });
     const data = await response.json();
     if (!response.ok) { setMessage(data.error); return; }
     setStatus(data);
+    await refreshAuth();
   }
-  useEffect(() => {
-    const client = authClient();
-    if (!client) return;
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(!!session);
-      if (!session) setStatus(null);
-      // Avoid calling auth methods synchronously inside the auth lock.
-      if (session) setTimeout(() => { void refresh(); }, 0);
-    });
-    const update = () => { void refresh(); };
-    window.addEventListener("billing-refresh", update);
-    return () => { data.subscription.unsubscribe(); window.removeEventListener("billing-refresh", update); };
-  }, []);
+
   async function signIn() {
     setBusy(true); setMessage("");
     try {
@@ -89,20 +92,23 @@ export function BillingPanel() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Checkout failed."); setBusy(false); }
   }
   return <section className="billing-panel" aria-label="Account and audit allowance">
-    <h2>Try 10 website audits free</h2>
-    <p>No card needed for your free audits. Sign in to save your allowance across devices.</p>
-    {!configured ? <p>Account setup is in progress. Please try the <a href="/demo">sample report</a> in the meantime.</p> : !signedIn ? <form onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
+    <h2>10 free audits · then $5/month</h2>
+    <p>No card needed for your free audits. Sign in to save your allowance across devices. After 10 audits, continue with a $5 monthly Razorpay subscription.</p>
+    {!configured ? <p>Account setup is in progress. Please try the <a href="/demo">sample report</a> in the meantime.</p> : !user ? <form onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
       <label>Email address <input type="email" required value={email} disabled={busy || sent} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></label>
       {sent && <label>Sign-in code <input required value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="numeric" /></label>}
       <button disabled={busy} type="submit">{busy ? "Please wait…" : sent ? "Verify & sign in" : "Email me a sign-in code"}</button>
       {sent && <button type="button" disabled={busy} onClick={() => { setSent(false); setCode(""); }}>Change email / resend</button>}
+      <Link href="/login" className="text-link">Go to login page →</Link>
     </form> : <div>
       {status && <>
         <p><strong>{status.freeRemaining} of 10 free audits remaining</strong>{status.active && ` · ${status.paidRemaining} paid audits remaining this billing cycle`}</p>
-        {status.plan && <p>{new Intl.NumberFormat("en-IN", { style: "currency", currency: status.plan.item.currency }).format(status.plan.item.amount / 100)} per {status.plan.interval === 1 ? "" : `${status.plan.interval} `}{(status.plan.period === "monthly" ? "month" : status.plan.period)} · {status.monthlyLimit} audits per billing cycle. Recurring payment; manage or cancel via Razorpay’s subscription emails, or contact support.</p>}
-        {!status.active && <button type="button" disabled={busy || !status.plan || !status.monthlyLimit} onClick={() => void subscribe()}>{busy ? "Opening checkout…" : "Subscribe with Razorpay"}</button>}
+        {status.plan ? <p>{new Intl.NumberFormat("en-IN", { style: "currency", currency: status.plan.item.currency }).format(status.plan.item.amount / 100)} per {status.plan.interval === 1 ? "" : `${status.plan.interval} `}{(status.plan.period === "monthly" ? "month" : status.plan.period)} · {status.monthlyLimit} audits per billing cycle. Recurring payment; manage or cancel via Razorpay’s subscription emails, or contact support.</p>
+        : <p>$5.00 per month · Razorpay recurring subscription · {status.monthlyLimit || "—"} audits per billing cycle. Cancel anytime.</p>}
+        {!status.active && <button type="button" disabled={busy || (!!status.plan && !status.monthlyLimit)} onClick={() => void subscribe()}>{busy ? "Opening checkout…" : "Subscribe for $5/month with Razorpay"}</button>}
       </>}
       <button type="button" disabled={busy} onClick={() => void refresh()}>Refresh allowance</button>
+      <Link href="/account" className="tactile" style={{ marginLeft: 8 }}>Manage account</Link>
       <button type="button" disabled={busy} onClick={() => { void authClient()?.auth.signOut(); setMessage(""); }}>Sign out</button>
     </div>}
     {message && <p role="status">{message}</p>}
