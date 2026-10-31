@@ -1206,3 +1206,19 @@ td {
     transition: none !important;
   }
 }
+
+.billing-panel {
+  max-width: 760px;
+  margin: 1.5rem auto;
+  padding: 1.25rem;
+  border: 2px solid currentColor;
+  border-radius: 12px;
+  text-align: left;
+}
+.billing-panel h2 { font-size: 1.25rem; margin-bottom: .5rem; }
+.billing-panel p { margin: .6rem 0; font-size: .95rem; }
+.billing-panel form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+.billing-panel label { display: grid; gap: .3rem; flex: 1 1 180px; }
+.billing-panel input { width: 100%; padding: .65rem; background: white; color: #171717; border: 2px solid #171717; border-radius: 6px; }
+.billing-panel button { cursor: pointer; padding: .65rem .9rem; margin: .3rem .5rem .3rem 0; border: 2px solid currentColor; border-radius: 6px; font-weight: 600; }
+.billing-panel button:disabled { opacity: .6; cursor: not-allowed; }

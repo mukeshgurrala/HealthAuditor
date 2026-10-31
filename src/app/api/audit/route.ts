@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { entitlement, billingFailure, BillingError } from "@/lib/billing/server";
 import { AuditError, runAudit } from "@/lib/audit/engine";
 import { normalizePublicUrl } from "@/lib/validation";
 import { BusyError, RequestCache } from "@/lib/audit/request-cache";
@@ -76,6 +77,22 @@ export async function POST(request: Request) {
           : "Enter a valid website URL.",
     );
   }
+  let reservation: { db: ReturnType<typeof import("@/lib/billing/server").database>; ticket: string } | null = null;
+  try {
+    const e = await entitlement(request);
+    const free = e.data.free_used < 10;
+    if (!free && !e.active) throw new BillingError(402, "Your 10 free audits are used. Subscribe below to continue.");
+    const limit = Number(process.env.AUDITS_PER_MONTH || 0);
+    if (!free && (!Number.isSafeInteger(limit) || limit <= 0)) throw new BillingError(503, "The monthly audit allowance is not configured.");
+    const { data: ticket, error } = await e.db.rpc("reserve_audit", {
+      p_user: e.user.id,
+      p_period: free ? "free" : `${e.subscription!.id}:${e.subscription!.current_start}`,
+      p_limit: free ? 10 : limit,
+    });
+    if (error) throw new BillingError(503, "Could not reserve an audit. Please try again.");
+    if (!ticket) throw new BillingError(402, "Your audit allowance is used up. Refresh your allowance below.");
+    reservation = { db: e.db, ticket };
+  } catch (error) { return billingFailure(error); }
   try {
     const result = await cache.get(JSON.stringify([url, options]), () =>
       runAudit(url, options),
@@ -85,6 +102,9 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    // Refund failures, including busy slots, so only successful audits consume credits.
+    const refund = await reservation.db.rpc("refund_audit", { p_ticket: reservation.ticket });
+    if (refund.error) console.error("Audit credit refund failed; reconcile ticket", reservation.ticket);
     if (error instanceof BusyError)
       return failure(
         429,

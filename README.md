@@ -12,13 +12,13 @@ Enter URL → Audit → Find problems → Prioritise → Explain → Fix → Re-
 - **Priority engine** — impact × affected elements × effort, so the list starts with what matters
 - **Evidence for everything** — rule ID, observed value, expected value, element/resource
 - **Plain language by default**, technical details one click away
-- **Works without an API key** and without an account; reports are cached in memory for up to two minutes
+- **10 free audits per verified email account**, then a monthly Razorpay plan; reports are cached in memory for up to two minutes
 
 ## Quick start
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: add PAGESPEED_API_KEY for Core Web Vitals
+cp .env.example .env.local   # configure Supabase and Razorpay; optional PageSpeed key
 npm run dev
 ```
 
@@ -128,3 +128,9 @@ backend events. Lighthouse metrics remain optional and are never fabricated.
 - Fonts are self-hosted through Fontsource; no third-party font requests are needed.
 - Decorative motion respects reduced-motion preferences; previews use native dialogs
   with keyboard dismissal and focus restoration.
+
+## Accounts, free audits and Razorpay
+
+See [billing setup](docs/BILLING.md). Real audits now require email sign-in and database
+setup. `/demo` remains public. The uploaded Razorpay credentials are local only and must
+also be configured in your hosting provider; they are never committed.

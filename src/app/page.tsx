@@ -62,7 +62,7 @@ export default function Home() {
                 Let’s check your website <span aria-hidden="true">↗</span>
               </a>
               <span className="hero-footnote">
-                No account. No fuss. Just answers.
+                10 free audits. Clear answers. Sign in to get started.
               </span>
             </div>
             <ReportIllustration />
