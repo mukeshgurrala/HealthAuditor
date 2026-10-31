@@ -108,14 +108,14 @@ effort:  ${Object.entries(EFFORT_MULTIPLIER).map(([k, v]) => `${k}=${v}`).join("
 
       <h2 id="privacy">6. Privacy</h2>
       <ul>
-        <li>No account is required.</li>
+        <li>Sign in by email to use 10 free audits. Supabase stores your account, audit usage and Razorpay subscription reference.</li>
         <li>Audits run on demand; the URL and the report are returned to your browser and cached in server memory for up to two minutes to avoid duplicate work. Reports are not persisted to a database.</li>
         <li>Page content is held in memory for the duration of the audit only.</li>
         <li>
           If a PageSpeed Insights key is configured, the audited URL is sent to Google&apos;s PageSpeed Insights API.
-          That is the only third party involved.
+          Supabase handles authentication and account storage; Razorpay handles recurring payments. Card details are entered in Razorpay checkout, not stored by HealthAuditor.
         </li>
-        <li>No analytics and no cookies are used by this app.</li>
+        <li>Your sign-in session is stored in your browser. Deployment analytics may also be enabled.</li>
         <li>False-positive reports you submit contain the rule ID, the URL and your explanation, and are logged server-side.</li>
       </ul>
     </main>

@@ -1,5 +1,7 @@
 "use client";
 
+import { BillingPanel } from "./billing-panel";
+import { authHeaders } from "@/lib/billing/client";
 import { normalizeUrlInput } from "@/lib/url-input";
 import { FormEvent, useState } from "react";
 import type { AuditReport } from "@/lib/audit/types";
@@ -33,10 +35,11 @@ export function AuditForm() {
       const response = await fetch("/api/audit", {
         signal: AbortSignal.timeout(65_000),
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...await authHeaders() },
         body: JSON.stringify({ url: normalized }),
       });
       const data = await response.json();
+      window.dispatchEvent(new Event("billing-refresh"));
       if (!response.ok || !data.success) {
         throw new Error(data.error || "We couldn't analyse this website.");
       }
@@ -65,6 +68,7 @@ export function AuditForm() {
 
   return (
     <>
+      <BillingPanel />
       <form
         id="audit-input"
         className="audit-form"
@@ -102,7 +106,7 @@ export function AuditForm() {
           </p>
         )}
         <p id="audit-help" className="free">
-          Enter a public website URL. No account required.
+          Enter a public website URL. Sign in above for 10 free audits.
         </p>
       </form>
       {state === "loading" && <LoadingState />}
